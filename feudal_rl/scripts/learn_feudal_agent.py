@@ -2,33 +2,38 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from ..maze import Maze
-from ..policy import PolicyEpsGreedy, PolicySoftmax
-from ..q_agent import QAgent
+from ..feudal_agent import FeudalAgent
+from ..policy import PolicySoftmax
+
+
+def make_policy(num_actions):
+    return PolicySoftmax(0.1, num_actions)
 
 
 def main(args):
 
-    maze = Maze(args.size)
-    policy = PolicySoftmax(args.tau, 4)
-    agent = QAgent(args.size ** 2, policy, args.alpha, args.gamma)
+    maze = Maze(args.size, multiplex_state=False)
+    agent = FeudalAgent(args.size, [4, 16, 64], make_policy, args.alpha, args.gamma)
 
     steps = 0
-    for i in range(args.num_steps):
+    while True:
 
-        if i > 0 and i % 50000 == 0:
-            print("Learning step {:d}".format(i))
+        x, y = maze.get_state()
 
-            qs = agent.qs
-            qs = np.reshape(qs, (4, args.size, args.size))
-            plt.imshow(qs[0])
-            plt.colorbar()
-            plt.show()
+        img = np.zeros((args.size, args.size), dtype=np.float32)
+        img[x, y] = 1.0
+        img[maze.goal_x, maze.goal_y] = 2.0
 
-        state = maze.get_state()
-        action = agent.act(state)
+        plt.imshow(img)
+        plt.show()
+
+        action = agent.act(x, y)
         next_state, done = maze.step(action)
-        agent.learn(state, action, int(done), next_state)
+        print(action)
+        #agent.learn(state, action, int(done), next_state)
         steps += 1
+
+        agent.backup(x, y, next_state[0], next_state[1], action, int(done))
 
         if done:
             maze.reset()
